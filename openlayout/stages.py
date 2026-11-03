@@ -47,9 +47,9 @@ DETAIL_PLACE = StageSpec(
     output_odb="02_detail_place.odb",
     input_stage="macro_place",
     default_params={
-        "place_density": 0.60,         # proven bp_fe/ariane setting; 0.0 = auto
+        "place_density": 0.45,         # leave routing headroom for batch designs
         "halo_um": 5.0,
-        "pdn_pitch": 56.0,
+        "pdn_pitch": 8.0,
         "routability_driven": 1,
         "timing_driven": 0,            # proven flow places without -timing_driven
         "run_resizer": 1,
@@ -57,7 +57,7 @@ DETAIL_PLACE = StageSpec(
     tunable_params={"place_density", "halo_um", "pdn_pitch",
                     "routability_driven", "timing_driven", "run_resizer"},
     param_ranges={"place_density": (0.0, 0.95), "halo_um": (2.0, 10.0),
-                  "pdn_pitch": (40.0, 80.0), "routability_driven": (0, 1),
+                  "pdn_pitch": (4.0, 24.0), "routability_driven": (0, 1),
                   "timing_driven": (0, 1), "run_resizer": (0, 1)},
     param_space="""- place_density: float, 0.0 (auto) or 0.40..0.95. Higher packs
   cells tighter (shorter wires, more congestion); lower spreads them.
@@ -108,13 +108,14 @@ ROUTE = StageSpec(
     output_odb="04_route.odb",
     input_stage="cts",
     default_params={
-        "layer_adjustment": 0.3,
+        "layer_adjustment": 0.06,
+        "sig_max_layer": "metal10",
         "sig_min_layer": "metal2",
         "sig_max_layer": "metal9",
         "clk_min_layer": "metal3",
-        "clk_max_layer": "metal7",
-        "congestion_iterations": 30,
-        "droute_end_iter": 8,
+        "clk_max_layer": "metal8",
+        "congestion_iterations": 10,
+        "droute_end_iter": 1,
         "post_grt_repair_design": 1,
         "post_grt_repair_setup": 1,
         "post_grt_repair_hold": 1,
@@ -158,7 +159,7 @@ FINISH = StageSpec(
                     # upstream reruns (owner mapping in flow.py):
                     "pdn_pitch", "droute_end_iter", "layer_adjustment",
                     "hold_margin"},
-    param_ranges={"vdd_voltage": (0.9, 1.32), "pdn_pitch": (40.0, 80.0),
+    param_ranges={"vdd_voltage": (0.9, 1.32), "pdn_pitch": (4.0, 24.0),
                   "droute_end_iter": (5, 30), "layer_adjustment": (0.1, 0.7),
                   "hold_margin": (0.0, 0.15)},
     param_space="""- ir_source_type: FULL | STRAPS | BUMPS. Voltage source model for

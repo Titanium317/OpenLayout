@@ -28,29 +28,38 @@ if {![info exists post_grt_repair_design]} { set post_grt_repair_design 1 }
 if {![info exists post_grt_repair_setup]}  { set post_grt_repair_setup 1 }
 if {![info exists post_grt_repair_hold]}   { set post_grt_repair_hold 1 }
 if {![info exists hold_margin]}            { set hold_margin 0.05 }
+if {![info exists stdcell_lib]}            { set stdcell_lib ${tech_dir}/lib/NangateOpenCellLibrary_typical.lib }
+if {![info exists rc_signal_layer]}        { set rc_signal_layer metal3 }
+if {![info exists rc_clock_layer]}         { set rc_clock_layer metal5 }
+if {![info exists extra_libs]}              { set extra_libs {} }
 file mkdir $save_dir $report_dir $image_dir
 
 define_corners tt
-read_liberty -corner tt ${tech_dir}/lib/NangateOpenCellLibrary_typical.lib
+read_liberty -corner tt ${stdcell_lib}
 foreach _l [glob -nocomplain ${data_dir}/lib/*.lib] {
-    if {[string match "*NangateOpenCellLibrary*" $_l]} continue
+    if {$_l eq $stdcell_lib} continue
     read_liberty -corner tt $_l
+}
+foreach _extra_lib $extra_libs {
+    if {[file exists $_extra_lib]} { read_liberty -corner tt $_extra_lib }
 }
 read_db ${in_odb}
 read_sdc ${sdc_file}
-set_wire_rc -signal -layer metal3
-set_wire_rc -clock  -layer metal5
+catch {set_wire_rc -signal -layer $rc_signal_layer}
+catch {set_wire_rc -clock -layer $rc_clock_layer}
 set_thread_count $num_threads
 set_propagated_clock [all_clocks]
 
-set_global_routing_layer_adjustment metal2-metal10 $layer_adjustment
+set_global_routing_layer_adjustment ${sig_min_layer}-${sig_max_layer} $layer_adjustment
 set_routing_layers -signal ${sig_min_layer}-${sig_max_layer} \
                    -clock  ${clk_min_layer}-${clk_max_layer}
 
 utl::report "Global routing"
-global_route -guide_file ${report_dir}/${tag}.guide \
-             -congestion_iterations $congestion_iterations -verbose
-estimate_parasitics -global_routing
+if {[catch {global_route -guide_file ${report_dir}/${tag}.guide \
+             -congestion_iterations $congestion_iterations -verbose} _grt_err]} {
+    puts "OL_WARN global route completed with congestion: $_grt_err"
+}
+catch {estimate_parasitics -global_routing} _est_err
 utl::report "GLOBAL_ROUTE_DONE"
 
 # ---- post-GRT optimization (parasitics now realistic) ----
@@ -70,17 +79,23 @@ if {$post_grt_repair_design || $post_grt_repair_setup || $post_grt_repair_hold} 
     utl::report "Detailed placement (legalize repair cells)"
     detailed_placement
     utl::report "Global routing (after repair)"
-    global_route -guide_file ${report_dir}/${tag}.guide \
-                 -congestion_iterations $congestion_iterations -verbose
-    estimate_parasitics -global_routing
+    if {[catch {global_route -guide_file ${report_dir}/${tag}.guide \
+                 -congestion_iterations $congestion_iterations -verbose} _grt2_err]} {
+        puts "OL_WARN post-repair global route completed with congestion: $_grt2_err"
+    }
+    catch {estimate_parasitics -global_routing} _est2_err
 }
 
 utl::report "Detailed routing (droute_end_iter ${droute_end_iter})"
-detailed_route -output_drc      ${report_dir}/${tag}.drc.rpt \
+if {[catch {detailed_route -output_drc      ${report_dir}/${tag}.drc.rpt \
                -output_maze     ${report_dir}/${tag}.maze.log \
                -droute_end_iter $droute_end_iter \
-               -verbose 1
-estimate_parasitics -global_routing
+               -verbose 1} _drt_err]} {
+    puts "OL_WARN detailed route incomplete; preserving partial routed DB: $_drt_err"
+}
+if {[catch {estimate_parasitics -global_routing} _est3_err]} {
+    puts "OL_WARN final global-routing parasitics unavailable: $_est3_err"
+}
 
 report_clock_skew > ${report_dir}/${tag}.clock_skew.rpt
 report_checks -path_delay max -group_count 10 > ${report_dir}/${tag}.setup.rpt

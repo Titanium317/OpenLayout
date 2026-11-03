@@ -19,21 +19,31 @@ if {![info exists num_threads]} { set num_threads 8 }
 # --- tunables ---
 if {![info exists ir_source_type]} { set ir_source_type FULL }
 if {![info exists vdd_voltage]}    { set vdd_voltage 1.1 }
+if {![info exists stdcell_lib]}      { set stdcell_lib ${tech_dir}/lib/NangateOpenCellLibrary_typical.lib }
+if {![info exists rc_signal_layer]}  { set rc_signal_layer metal3 }
+if {![info exists rc_clock_layer]}   { set rc_clock_layer metal5 }
+if {![info exists skip_pdn]}         { set skip_pdn 0 }
+if {![info exists extra_libs]}       { set extra_libs {} }
 file mkdir $save_dir $report_dir $image_dir
 
 define_corners tt
-read_liberty -corner tt ${tech_dir}/lib/NangateOpenCellLibrary_typical.lib
+read_liberty -corner tt ${stdcell_lib}
 foreach _l [glob -nocomplain ${data_dir}/lib/*.lib] {
-    if {[string match "*NangateOpenCellLibrary*" $_l]} continue
+    if {$_l eq $stdcell_lib} continue
     read_liberty -corner tt $_l
+}
+foreach _extra_lib $extra_libs {
+    if {[file exists $_extra_lib]} { read_liberty -corner tt $_extra_lib }
 }
 read_db ${in_odb}
 read_sdc ${sdc_file}
-set_wire_rc -signal -layer metal3
-set_wire_rc -clock  -layer metal5
+catch {set_wire_rc -signal -layer $rc_signal_layer}
+catch {set_wire_rc -clock -layer $rc_clock_layer}
 set_thread_count $num_threads
 set_propagated_clock [all_clocks]
-estimate_parasitics -global_routing
+if {[catch {estimate_parasitics -global_routing} _est_finish_err]} {
+    puts "OL_WARN finish global-routing parasitics unavailable: $_est_finish_err"
+}
 
 puts "============================================"
 puts "Final timing / area / wirelength / power"
@@ -51,7 +61,10 @@ report_checks -path_delay min -group_count 10 > ${report_dir}/${tag}.hold.rpt
 puts "============================================"
 puts "IR drop analysis (analyze_power_grid)"
 puts "============================================"
-# Set supply voltages
+# Set supply voltages.  Non-Nangate adapters intentionally skip PDN/IR until
+# their platform-specific grid is installed; finish still writes all timing,
+# power and routed artifacts.
+if {!$skip_pdn} {
 set_pdnsim_net_voltage -net VDD -voltage $vdd_voltage
 set_pdnsim_net_voltage -net VSS -voltage 0.0
 
@@ -75,6 +88,9 @@ if {[catch {
         -error_file   ${report_dir}/${tag}.vss_pg_error.rpt
 } _err]} {
     puts "OL_WARN VSS IR analysis failed: $_err"
+}
+} else {
+    puts "OL_WARN IR analysis skipped: platform adapter has no PDN grid"
 }
 
 write_db ${out_odb}

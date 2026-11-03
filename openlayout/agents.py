@@ -110,11 +110,22 @@ class Worker:
         return {
             "data_dir": str(c.data_dir),
             "tech_dir": str(c.tech_dir_path),
+            "platform": c.platform,
+            "stdcell_lib": str(c.stdcell_lib),
+            "tech_lef": str(c.tech_lef),
+            "cell_lef": str(c.cell_lef),
+            "extra_cell_lefs": " ".join(str(p) for p in c.extra_cell_lefs),
+            "extra_libs": " ".join(str(p) for p in c.extra_libs),
+            "site_name": c.site_name,
+            **c.platform_stage_defaults,
             "proj_name": c.design,
             "top_design": c.top,
             "netlist_file": str(c.netlist_path),
             "sdc_file": str(c.sdc_path),
-            "fp_def": str(c.floorplan_def_path),
+            # Empty floorplan_def selects the netlist-driven initializer in
+            # floorplan_init.tcl; do not stringify the data directory as a
+            # bogus DEF path.
+            "fp_def": str(c.floorplan_def_path) if c.floorplan_def else "",
             "save_dir": str(c.save_dir),
             "report_dir": str(c.report_dir),
             "image_dir": str(c.image_dir),

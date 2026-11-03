@@ -1,0 +1,58 @@
+design:
+  name: aes
+  top: aes_cipher_top
+  data_dir: Benchmark/CurrentNet2GDS43/gf180__aes__base
+  netlist: netlist.v
+  sdc: constraint.sdc
+  floorplan_def: ""
+  cluster_file: null
+paths:
+  output_dir: output/current43/gf180__aes__base
+  image_dir: output/current43/gf180__aes__base/images
+goal:
+  timing_met: true
+  drc_clean: true
+  max_wns: 0.0
+  priority: [timing, drc, tns, placement, wirelength, power, area]
+tech:
+  platform: gf180
+  dir: /data/taiyuzhou/net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180
+  stdcell_lib: gf180mcu_fd_sc_mcu9t5v0__tt_025C_5v00.lib.gz
+  tech_lef: gf180mcu_5LM_1TM_9K_9t_tech.lef
+  cell_lef: gf180mcu_5LM_1TM_9K_9t_sc.lef
+  site: GF018hv5v_green_sc9
+
+skills:
+  flow_dir: skills/skills_openroad_flow
+image:
+  width: 1024
+  margin: 0.03
+llm:
+  provider: openai
+  model: deepseek-flash
+  api_key_file: /data/taiyuzhou/net2GDS/eda-agent/.env
+  base_url: https://api.deepseek.com
+  max_output_tokens: 8192
+  max_attempts: 1
+  timeout: 180
+macro_stage:
+  enable: false
+  candidates: 1
+  parallel_workers: 1
+stages:
+  - {name: floorplan, optimizer_budget: 0}
+  - {name: macro_place, optimizer_budget: 0}
+  - {name: detail_place, optimizer_budget: 0}
+  - {name: cts, optimizer_budget: 0}
+  - {name: route, optimizer_budget: 0}
+  - {name: finish, optimizer_budget: 0}
+agents:
+  optimizer_suggestions: 0
+  debugger_extra_budget: 1
+  parallel_eval: false
+  allow_tool_queries: false
+  max_queries: 0
+openroad:
+  executable: /data/taiyuzhou/OpenLayout/openroad_container.sh
+  threads: 8
+  timeout_s: 7200

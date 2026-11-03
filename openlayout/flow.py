@@ -219,8 +219,13 @@ class Flow:
                "--gate-b-max-refine", str(mp.get("gate_b_max_refine", 2)),
                "--post-route-opt-loops", "0",
                "--quiet"]
-        if cfg.floorplan_def:
-            cmd += ["--floorplan-def", cfg.floorplan_def]
+        macro_fp = cfg.floorplan_def
+        if not macro_fp:
+            generated_fp = cfg.save_dir / "00_floorplan.def"
+            if generated_fp.exists():
+                macro_fp = str(generated_fp)
+        if macro_fp:
+            cmd += ["--floorplan-def", str(macro_fp)]
         if cfg.tech_dir:
             cmd += ["--tech-dir", str(cfg.tech_dir)]
         if mp.get("route_mode"):
@@ -484,9 +489,30 @@ class Flow:
         in_odb = None
         if spec.input_stage:
             in_odb = cfg.save_dir / ALL_STAGES[spec.input_stage].output_odb
+            # A direct stage subset (for example ``--stages floorplan
+            # detail_place``) may omit the macro_place dispatcher.  When
+            # macro placement is disabled, its checkpoint is intentionally
+            # just the floorplan DB; materialize that handoff here so the
+            # detail-place worker receives the same input as a full run.
+            if (not in_odb.exists() and spec.input_stage == "macro_place"):
+                floorplan_odb = cfg.save_dir / ALL_STAGES["floorplan"].output_odb
+                if floorplan_odb.exists():
+                    in_odb.parent.mkdir(parents=True, exist_ok=True)
+                    shutil.copyfile(floorplan_odb, in_odb)
+                    self.log("    [flow] materialized macro-place checkpoint "
+                             "from floorplan DB")
         canonical = cfg.save_dir / spec.output_odb
 
         p0 = dict(spec.default_params)
+        # Technology-specific layers and CTS cells override the Nangate45
+        # reference defaults while preserving any explicit call parameters.
+        tech_defaults = self.cfg.platform_stage_defaults
+        for key in ("sig_min_layer", "sig_max_layer", "clk_min_layer",
+                    "clk_max_layer", "root_buf", "buf_list",
+                    "repair_setup", "repair_hold", "post_grt_repair_design",
+                    "post_grt_repair_setup", "post_grt_repair_hold"):
+            if key in tech_defaults:
+                p0[key] = tech_defaults[key]
         p0.update(params or {})
         res, m = self.worker.run(spec, p0, spec.name, in_odb=in_odb,
                                  out_odb=canonical)

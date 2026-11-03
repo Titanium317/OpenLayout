@@ -15,6 +15,10 @@ output/
 work/
 *.log
 
+# --- Local Net2GDS benchmark adapters (generated; absolute symlinks) ---
+Benchmark/CurrentNet2GDS/
+Benchmark/CurrentNet2GDS43/
+
 # --- Python ---
 __pycache__/
 *.py[cod]

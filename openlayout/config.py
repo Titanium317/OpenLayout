@@ -172,8 +172,140 @@ class FlowConfig:
         return self.tech_dir or self.data_dir
 
     @property
+    def platform(self) -> str:
+        """Technology platform identifier used by the stage templates."""
+        t = self.raw.get("tech", {}) or {}
+        return str(t.get("platform", "nangate45")).lower()
+
+    def _tech_option(self, name: str, default: str = "") -> str:
+        t = self.raw.get("tech", {}) or {}
+        return str(t.get(name, default) or default)
+
+    @property
+    def extra_cell_lefs(self) -> list[Path]:
+        vals = self.raw.get("tech", {}).get("extra_cell_lefs", []) or []
+        return [Path(v).resolve() for v in vals]
+
+    @property
+    def extra_libs(self) -> list[Path]:
+        vals = self.raw.get("tech", {}).get("extra_libs", []) or []
+        return [Path(v).resolve() for v in vals]
+
+    @property
     def stdcell_lib(self) -> Path:
-        return self.tech_dir_path / "lib" / "NangateOpenCellLibrary_typical.lib"
+        explicit = self._tech_option("stdcell_lib")
+        if explicit:
+            p = Path(explicit)
+            return p if p.is_absolute() else self.tech_dir_path / "lib" / p
+        p = self.tech_dir_path / "lib"
+        names = {
+            "nangate45": "NangateOpenCellLibrary_typical.lib",
+            "gf180": "gf180mcu_fd_sc_mcu9t5v0__tt_025C_5v00.lib.gz",
+            "ihp-sg13g2": "sg13g2_stdcell_typ_1p20V_25C.lib",
+            "sky130hd": "sky130_fd_sc_hd__tt_025C_1v80.lib",
+            "sky130hs": "sky130_fd_sc_hs__tt_025C_1v80.lib",
+        }
+        candidate = p / names.get(self.platform, "NangateOpenCellLibrary_typical.lib")
+        if candidate.exists():
+            return candidate
+        hits = sorted(list(p.glob("*.lib")) + list(p.glob("*.lib.gz")))
+        if not hits:
+            return candidate
+        # Prefer a standard-cell liberty over SRAM/IO macro libraries.
+        preferred = [h for h in hits if any(k in h.name.lower() for k in
+                    ("stdcell", "sc_", "fd_sc", "nangate"))]
+        return (preferred or hits)[0]
+
+    @property
+    def tech_lef(self) -> Path:
+        explicit = self._tech_option("tech_lef")
+        if explicit:
+            p = Path(explicit)
+            return p if p.is_absolute() else self.tech_dir_path / "lef" / p
+        p = self.tech_dir_path / "lef"
+        names = {
+            "nangate45": "NangateOpenCellLibrary.tech.lef",
+            "gf180": "gf180mcu_5LM_1TM_9K_9t_tech.lef",
+            "ihp-sg13g2": "sg13g2_tech.lef",
+            "sky130hd": "sky130_fd_sc_hd.tlef",
+            "sky130hs": "sky130_fd_sc_hs.tlef",
+        }
+        return p / names.get(self.platform, "NangateOpenCellLibrary.tech.lef")
+
+    @property
+    def cell_lef(self) -> Path:
+        explicit = self._tech_option("cell_lef")
+        if explicit:
+            p = Path(explicit)
+            return p if p.is_absolute() else self.tech_dir_path / "lef" / p
+        p = self.tech_dir_path / "lef"
+        names = {
+            "nangate45": "NangateOpenCellLibrary.macro.mod.lef",
+            "gf180": "gf180mcu_5LM_1TM_9K_9t_sc.lef",
+            "ihp-sg13g2": "sg13g2_stdcell.lef",
+            "sky130hd": "sky130_fd_sc_hd_merged.lef",
+            "sky130hs": "sky130_fd_sc_hs_merged.lef",
+        }
+        return p / names.get(self.platform, "NangateOpenCellLibrary.macro.mod.lef")
+
+    @property
+    def site_name(self) -> str:
+        explicit = self._tech_option("site")
+        if explicit:
+            return explicit
+        return {
+            "nangate45": "FreePDK45_38x28_10R_NP_162NW_34O",
+            "gf180": "GF018hv5v_green_sc9",
+            "ihp-sg13g2": "CoreSite",
+            "sky130hd": "unithd",
+            "sky130hs": "unit",
+        }.get(self.platform, "FreePDK45_38x28_10R_NP_162NW_34O")
+
+    @property
+    def platform_stage_defaults(self) -> dict:
+        """Layer/cell knobs shared by all templates for this PDK."""
+        p = self.platform
+        if p == "gf180":
+            return {"rc_signal_layer": "Metal3", "rc_clock_layer": "Metal4",
+                    "sig_min_layer": "Metal2", "sig_max_layer": "Metal5",
+                    "clk_min_layer": "Metal3", "clk_max_layer": "Metal5",
+                    "place_pin_h": "Metal3", "place_pin_v": "Metal2",
+                    "root_buf": "gf180mcu_fd_sc_mcu9t5v0__clkbuf_4",
+                    "buf_list": "gf180mcu_fd_sc_mcu9t5v0__buf_2 gf180mcu_fd_sc_mcu9t5v0__buf_4 gf180mcu_fd_sc_mcu9t5v0__buf_8",
+                    "repair_setup": 0, "repair_hold": 0,
+                    "post_grt_repair_design": 0, "post_grt_repair_setup": 0,
+                    "post_grt_repair_hold": 0,
+                    "skip_pdn": 1}
+        if p == "ihp-sg13g2":
+            return {"rc_signal_layer": "Metal3", "rc_clock_layer": "Metal4",
+                    "sig_min_layer": "Metal2", "sig_max_layer": "Metal5",
+                    "clk_min_layer": "Metal3", "clk_max_layer": "Metal5",
+                    "place_pin_h": "Metal3", "place_pin_v": "Metal2",
+                    "root_buf": "sg13g2_buf_4",
+                    "buf_list": "sg13g2_buf_1 sg13g2_buf_2 sg13g2_buf_4",
+                    "repair_setup": 0, "repair_hold": 0,
+                    "post_grt_repair_design": 0, "post_grt_repair_setup": 0,
+                    "post_grt_repair_hold": 0,
+                    "skip_pdn": 1}
+        if p in ("sky130hd", "sky130hs"):
+            pre = "sky130_fd_sc_hd__" if p == "sky130hd" else "sky130_fd_sc_hs__"
+            return {"rc_signal_layer": "met3", "rc_clock_layer": "met4",
+                    "sig_min_layer": "met1", "sig_max_layer": "met5",
+                    "clk_min_layer": "met3", "clk_max_layer": "met5",
+                    "place_pin_h": "met3", "place_pin_v": "met2",
+                    "root_buf": pre + "clkbuf_4",
+                    "buf_list": pre + "buf_1 " + pre + "buf_2 " + pre + "buf_4",
+                    "repair_setup": 0, "repair_hold": 0,
+                    "post_grt_repair_design": 0, "post_grt_repair_setup": 0,
+                    "post_grt_repair_hold": 0,
+                    "skip_pdn": 1}
+        return {"rc_signal_layer": "metal3", "rc_clock_layer": "metal5",
+                "sig_min_layer": "metal2", "sig_max_layer": "metal9",
+                "clk_min_layer": "metal3", "clk_max_layer": "metal8",
+                "place_pin_h": "metal3", "place_pin_v": "metal2",
+                "root_buf": "CLKBUF_X3",
+                "buf_list": "CLKBUF_X1 CLKBUF_X2 CLKBUF_X3",
+                "skip_pdn": 0}
 
     @property
     def save_dir(self) -> Path:

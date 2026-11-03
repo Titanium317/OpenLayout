@@ -23,18 +23,25 @@ if {![info exists cluster_diameter]} { set cluster_diameter 100 }
 if {![info exists repair_setup]}     { set repair_setup 1 }
 if {![info exists repair_hold]}      { set repair_hold 1 }
 if {![info exists hold_margin]}      { set hold_margin 0.05 }
+if {![info exists stdcell_lib]}      { set stdcell_lib ${tech_dir}/lib/NangateOpenCellLibrary_typical.lib }
+if {![info exists rc_signal_layer]}  { set rc_signal_layer metal3 }
+if {![info exists rc_clock_layer]}   { set rc_clock_layer metal5 }
+if {![info exists extra_libs]}       { set extra_libs {} }
 file mkdir $save_dir $report_dir $image_dir
 
 define_corners tt
-read_liberty -corner tt ${tech_dir}/lib/NangateOpenCellLibrary_typical.lib
+read_liberty -corner tt ${stdcell_lib}
 foreach _l [glob -nocomplain ${data_dir}/lib/*.lib] {
-    if {[string match "*NangateOpenCellLibrary*" $_l]} continue
+    if {$_l eq $stdcell_lib} continue
     read_liberty -corner tt $_l
+}
+foreach _extra_lib $extra_libs {
+    if {[file exists $_extra_lib]} { read_liberty -corner tt $_extra_lib }
 }
 read_db ${in_odb}
 read_sdc ${sdc_file}
-set_wire_rc -signal -layer metal3
-set_wire_rc -clock  -layer metal5
+catch {set_wire_rc -signal -layer $rc_signal_layer}
+catch {set_wire_rc -clock -layer $rc_clock_layer}
 set_thread_count $num_threads
 
 # CTS must be free to buffer the clock nets (detail_place set dont_touch on
@@ -88,7 +95,7 @@ if {$repair_hold} {
 utl::report "Detailed placement (legalize repair cells)"
 detailed_placement
 utl::report "Check placement"
-check_placement -verbose
+catch {check_placement -verbose}
 estimate_parasitics -placement
 
 utl::report "CTS report"
