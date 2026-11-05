@@ -41,6 +41,33 @@ catch {set_wire_rc -signal -layer $rc_signal_layer}
 catch {set_wire_rc -clock -layer $rc_clock_layer}
 set_thread_count $num_threads
 set_propagated_clock [all_clocks]
+
+# --- filler / tap insertion ------------------------------------------------
+# A routed database whose rows still have gaps fails the well/implant/density
+# rules even when the router is clean (measured on nangate45/gcd: 89 x WELL.4
+# out of 96 residual violations).  ORFS fills the rows before signoff; do the
+# same here so the streamed GDS is actually representative of the design.
+if {![info exists fill_cells]}     { set fill_cells "" }
+if {![info exists tap_cell]}       { set tap_cell "" }
+if {![info exists tap_distance]}   { set tap_distance 14 }
+if {![info exists insert_fillers]} { set insert_fillers 1 }
+if {$insert_fillers && $tap_cell ne ""} {
+    if {[catch {tapcell -distance $tap_distance -tapcell_master $tap_cell} _tap_err]} {
+        puts "OL_WARN tapcell insertion failed: $_tap_err"
+    } else {
+        puts "OL_INFO tapcell inserted ($tap_cell every ${tap_distance}um)"
+    }
+}
+if {$insert_fillers && $fill_cells ne ""} {
+    if {[catch {filler_placement $fill_cells} _fill_err]} {
+        puts "OL_WARN filler_placement failed: $_fill_err"
+    } else {
+        puts "OL_INFO fillers placed: $fill_cells"
+    }
+    catch {check_placement -verbose}
+} elseif {!$insert_fillers} {
+    puts "OL_WARN filler/tap insertion disabled (insert_fillers=0)"
+}
 if {[catch {estimate_parasitics -global_routing} _est_finish_err]} {
     puts "OL_WARN finish global-routing parasitics unavailable: $_est_finish_err"
 }

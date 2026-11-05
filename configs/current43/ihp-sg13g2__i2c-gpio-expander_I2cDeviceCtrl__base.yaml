@@ -1,6 +1,6 @@
 design:
   name: i2c-gpio-expander_I2cDeviceCtrl
-  top: BufferCC_1
+  top: I2cDeviceCtrl
   data_dir: Benchmark/CurrentNet2GDS43/ihp-sg13g2__i2c-gpio-expander_I2cDeviceCtrl__base
   netlist: netlist.v
   sdc: constraint.sdc

@@ -1,6 +1,6 @@
 design:
   name: cva6
-  top: ALU_16_0_1_0_16_unused_CO_X_BRENT_KUNG
+  top: cva6
   data_dir: Benchmark/CurrentNet2GDS43/nangate45__cva6__base
   netlist: netlist.v
   sdc: constraint.sdc

@@ -5,9 +5,8 @@ from pathlib import Path
 
 ROOT = Path('/data/taiyuzhou/net2GDS')
 OL = Path('/data/taiyuzhou/OpenLayout')
-manifest = json.loads((ROOT / 'reports/openlayout_43_manifest_20261102.json').read_text())
+MANIFEST = ROOT / 'reports/openlayout_43_manifest_20261102.json'
 cfg_root = OL / 'configs/current43'
-cfg_root.mkdir(parents=True, exist_ok=True)
 
 TECH = {
     'nangate45': {'dir': ROOT / 'OpenROAD-flow-scripts/flow/platforms/nangate45', 'stdcell_lib': 'NangateOpenCellLibrary_typical.lib', 'tech_lef': 'NangateOpenCellLibrary.tech.lef', 'cell_lef': 'NangateOpenCellLibrary.macro.mod.lef', 'site': 'FreePDK45_38x28_10R_NP_162NW_34O'},
@@ -91,6 +90,13 @@ openroad:
   timeout_s: 7200
 '''
 
-for sample in manifest['samples']:
-    (cfg_root / (sample['sample_id'] + '.yaml')).write_text(make_config(sample))
-print('generated', len(manifest['samples']), 'configs')
+def main():
+    samples = json.loads(MANIFEST.read_text())['samples']
+    cfg_root.mkdir(parents=True, exist_ok=True)
+    for sample in samples:
+        (cfg_root / (sample['sample_id'] + '.yaml')).write_text(make_config(sample))
+    print('generated', len(samples), 'configs')
+
+
+if __name__ == '__main__':
+    main()

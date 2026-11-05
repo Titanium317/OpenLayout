@@ -1,6 +1,6 @@
 design:
   name: swerv_wrapper
-  top: ALU_19_0_1_0_19_unused_CO_X_BRENT_KUNG
+  top: swerv_wrapper
   data_dir: Benchmark/CurrentNet2GDS43/nangate45__swerv_wrapper__base
   netlist: netlist.v
   sdc: constraint.sdc

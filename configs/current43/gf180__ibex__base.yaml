@@ -1,6 +1,6 @@
 design:
   name: ibex
-  top: ALU_34_0_34_0_34_BRENT_KUNG
+  top: ibex_core
   data_dir: Benchmark/CurrentNet2GDS43/gf180__ibex__base
   netlist: netlist.v
   sdc: constraint.sdc

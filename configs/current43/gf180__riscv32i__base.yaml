@@ -1,6 +1,6 @@
 design:
   name: riscv32i
-  top: ALU_32_0_32_0_32_unused_CO_X_BRENT_KUNG
+  top: riscv
   data_dir: Benchmark/CurrentNet2GDS43/gf180__riscv32i__base
   netlist: netlist.v
   sdc: constraint.sdc

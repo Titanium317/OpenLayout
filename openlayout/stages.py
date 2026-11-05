@@ -154,6 +154,9 @@ FINISH = StageSpec(
     default_params={
         "ir_source_type": "FULL",
         "vdd_voltage": 1.1,
+        # Fill/tap insertion is part of signoff: without it the streamed GDS
+        # fails well/implant/density rules that the router cannot fix.
+        "insert_fillers": 1,
     },
     tunable_params={"ir_source_type", "vdd_voltage",
                     # upstream reruns (owner mapping in flow.py):

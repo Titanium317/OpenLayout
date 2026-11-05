@@ -24,13 +24,7 @@ platform_status = {
     'sky130hs': 'adapter_pending_platform_layers',
 }
 
-def top_from_netlist(path: Path) -> str | None:
-    txt = path.read_text(errors='ignore')
-    m = re.search(r'\(\*\s*top\s*=\s*1\s*\*\)\s*module\s+([A-Za-z_$][\w$]*)', txt)
-    if m:
-        return m.group(1)
-    m = re.search(r'\bmodule\s+([A-Za-z_$][\w$]*)', txt)
-    return m.group(1) if m else None
+from openlayout.tops import resolve_top  # noqa: E402  (script-local import)
 
 selected = json.loads(SUMMARY.read_text())['samples']
 rows=[]
@@ -51,7 +45,8 @@ for x in selected:
         'frozen_dir': str(frozen),
         'netlist': str(netlist),
         'sdc': str(sdc),
-        'top': top_from_netlist(netlist) if netlist.exists() else None,
+        **dict(zip(('top', 'top_source'),
+                   resolve_top(platform, design, frozen, netlist))),
         'netlist_exists': netlist.exists(),
         'sdc_exists': sdc.exists(),
         'platform_adapter': platform_status.get(platform, 'unsupported'),

@@ -1,6 +1,6 @@
 design:
   name: jpeg
-  top: ALU_19_0_19_0_19_BRENT_KUNG
+  top: jpeg_encoder
   data_dir: Benchmark/CurrentNet2GDS43/gf180__jpeg__base
   netlist: netlist.v
   sdc: constraint.sdc

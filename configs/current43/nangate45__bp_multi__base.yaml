@@ -1,6 +1,6 @@
 design:
   name: bp_multi
-  top: ALU_16_0_16_0_16_unused_CO_X_BRENT_KUNG
+  top: bp_multi_top
   data_dir: Benchmark/CurrentNet2GDS43/nangate45__bp_multi__base
   netlist: netlist.v
   sdc: constraint.sdc

@@ -1,6 +1,6 @@
 design:
   name: ariane133
-  top: SyncSpRamBeNx64_00000008_00000100_0_2
+  top: ariane
   data_dir: Benchmark/CurrentNet2GDS43/nangate45__ariane133__base
   netlist: netlist.v
   sdc: constraint.sdc

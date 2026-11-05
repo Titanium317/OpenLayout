@@ -1,6 +1,6 @@
 design:
   name: bp_be
-  top: bp_be_calculator_top_vaddr_width_p56_paddr_width_p22_asid_width_p10_branch_metadata_fwd_width_p36_core_els_p1_num_lce_p2_lce_sets_p64_cce_block_size_in_bytes_p64
+  top: bp_be_top
   data_dir: Benchmark/CurrentNet2GDS43/nangate45__bp_be__base
   netlist: netlist.v
   sdc: constraint.sdc

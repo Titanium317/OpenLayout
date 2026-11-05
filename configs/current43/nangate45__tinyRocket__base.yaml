@@ -1,6 +1,6 @@
 design:
   name: tinyRocket
-  top: CSRFile
+  top: RocketTile
   data_dir: Benchmark/CurrentNet2GDS43/nangate45__tinyRocket__base
   netlist: netlist.v
   sdc: constraint.sdc

@@ -23,11 +23,15 @@ PLATFORM = {
     'nangate45': {
         'tech': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/nangate45/FreePDK45.lyt',
         'gds': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/nangate45/gds/NangateOpenCellLibrary.gds'],
+        'lefs': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/nangate45/lef/NangateOpenCellLibrary.tech.lef',
+                 ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/nangate45/lef/NangateOpenCellLibrary.macro.mod.lef'],
     },
     'gf180': {
         'tech': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/KLayout/gf180mcu_5LM_1TM_9K_9t.lyt',
         'gds_dirs': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/gds/7t', ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/gds/9t'],
         'map': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/gds/7t/gf180mcu_5LM_1TM_9K_7t_edi2gds.layermap',
+        'lefs': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/lef/gf180mcu_5LM_1TM_9K_9t_tech.lef',
+                 ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/lef/gf180mcu_5LM_1TM_9K_9t_sc.lef'],
     },
     'ihp-sg13g2': {
         # The stock sg13g2.lyt references a relative map file that KLayout
@@ -37,14 +41,20 @@ PLATFORM = {
         'tech': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/nangate45/FreePDK45.lyt',
         'gds_dir': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/ihp-sg13g2/gds',
         'map': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/ihp-sg13g2/sg13g2.map',
+        'lefs': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/ihp-sg13g2/lef/sg13g2_tech.lef',
+                 ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/ihp-sg13g2/lef/sg13g2_stdcell.lef'],
     },
     'sky130hd': {
         'tech': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/sky130hd/sky130hd.lyt',
         'gds': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/sky130hd/gds/sky130_fd_sc_hd.gds'],
+        'lefs': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/sky130hd/lef/sky130_fd_sc_hd.tlef',
+                 ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/sky130hd/lef/sky130_fd_sc_hd_merged.lef'],
     },
     'sky130hs': {
         'tech': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/sky130hs/sky130hs.lyt',
         'gds': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/sky130hs/gds/sky130_fd_sc_hs.gds'],
+        'lefs': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/sky130hs/lef/sky130_fd_sc_hs.tlef',
+                 ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/sky130hs/lef/sky130_fd_sc_hs_merged.lef'],
     },
 }
 
@@ -107,6 +117,8 @@ def run_one(sample, force=False, skip_flow=False):
     conv = [str(PYTHON), str(OL / 'convert_def_to_gds.py'), '--def', str(final_def),
             '--out', str(gds_file), '--tech-file', str(PLATFORM[sample['platform']]['tech']),
             '--design', sample['top']]
+    for lef in PLATFORM[sample['platform']].get('lefs', []):
+        conv += ['--lef', str(lef)]
     if PLATFORM[sample['platform']].get('map'):
         conv += ['--layer-map', str(PLATFORM[sample['platform']]['map'])]
     for g in platform_gds(sample['platform'], sample):
