@@ -19,7 +19,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from openlayout.config import FlowConfig            # noqa: E402
-from openlayout.flow import Flow                    # noqa: E402
+from openlayout.flow import Flow, StageAborted      # noqa: E402
 from openlayout.stages import STAGE_ORDER           # noqa: E402
 
 
@@ -52,7 +52,11 @@ def main() -> int:
         stages = [s for s in STAGE_ORDER if s in args.stages]
 
     flow = Flow(cfg, use_llm=not args.no_llm, log=log)
-    report = flow.run(stages)
+    try:
+        report = flow.run(stages)
+    except StageAborted as exc:
+        log(f"OpenLayout aborted — {exc}")
+        return 3
     log(f"OpenLayout done — goal_met={report.get('goal_met')}")
     return 0
 

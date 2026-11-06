@@ -32,6 +32,15 @@ from .stages import ALL_STAGES, PARAM_OWNER, STAGE_ORDER, StageSpec
 from .telemetry import Telemetry
 
 
+class StageAborted(RuntimeError):
+    """A stage produced no usable database.
+
+    Unlike a poor-quality stage (too much DRC, bad timing) this must stop the
+    flow: the downstream stages read ``saves_db`` and would otherwise run on a
+    stale ODB from an earlier -- or entirely different -- design.
+    """
+
+
 class Flow:
     def __init__(self, cfg: FlowConfig, *, use_llm: bool = True,
                  log=print):
@@ -104,8 +113,15 @@ class Flow:
         self.context.update_stage("floorplan", status=status, metrics=m,
                                   params={})
         if not res.ok:
-            self.context.note("floorplan crashed — check "
+            # Never continue: the downstream stages fall back to whatever ODB is
+            # already in saves_db, which may be a previous (or entirely
+            # different) design.  That is how sky130hd/microwatt produced a
+            # 541 um2 "microwatt" from a stale ALU database.
+            self.context.note("floorplan crashed — aborting flow; check "
                               + str(res.log_path))
+            raise StageAborted(
+                f"floorplan failed (see {res.log_path}); refusing to reuse "
+                "the stale database in saves_db")
 
     # ==================================================================
     # stage 1: macro placement optimization (merged macroflow)

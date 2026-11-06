@@ -28,8 +28,12 @@ PLATFORM = {
     },
     'gf180': {
         'tech': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/KLayout/gf180mcu_5LM_1TM_9K_9t.lyt',
-        'gds_dirs': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/gds/7t', ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/gds/9t'],
-        'map': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/gds/7t/gf180mcu_5LM_1TM_9K_7t_edi2gds.layermap',
+        # ORFS defaults to TRACK_OPTION=9t; the cell library, tech LEF and
+        # layermap must all come from the same 9t set.  Mixing the 7t layermap
+        # with 9t cells (and merging both GDS dirs) puts the DEF layers on the
+        # wrong GDS layers, which showed up as ~500k CO./PP.5a violations.
+        'gds_dir': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/gds/9t',
+        'map': ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/gds/9t/gf180mcu_5LM_1TM_9K_9t_edi2gds.layermap',
         'lefs': [ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/lef/gf180mcu_5LM_1TM_9K_9t_tech.lef',
                  ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/lef/gf180mcu_5LM_1TM_9K_9t_sc.lef'],
     },
@@ -58,8 +62,39 @@ PLATFORM = {
     },
 }
 
+def platform_lefs(platform, sample=None):
+    """LEFs for the DEF reader: std cells **and** hard macros.
+
+    Without the SRAM/hard-macro LEFs the DEF reader invents a zero-size dummy
+    macro, which shifts every instance of it and invalidates the DRC.
+    """
+    lefs = list(PLATFORM[platform].get('lefs', []))
+    pdir = ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms' / platform
+    if platform == 'nangate45':
+        lefs += sorted((pdir / 'lef').glob('fakeram45_*.lef'))
+    elif platform == 'ihp-sg13g2':
+        lefs += sorted(p for p in (pdir / 'lef').glob('*.lef')
+                       if p.name.startswith('RM_IHPSG13') or p.name == 'sg13g2_io.lef')
+    elif platform == 'gf180':
+        # Only aes-hybrid mixes the 7t5v0 family in; pulling in every
+        # gf180mcu_*_sc.lef duplicates MACRO names (2LM/6LM variants).
+        if sample and sample.get('design') == 'aes-hybrid':
+            lefs.append(pdir / 'lef' / 'gf180mcu_5LM_1TM_9K_7t_sc.lef')
+    if sample and platform == 'sky130hd' and sample.get('design') == 'chameleon':
+        lefs += sorted((ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/designs/sky130hd/chameleon/lef').glob('*.lef'))
+    seen, out = set(), []
+    for p in lefs:
+        if p.exists() and str(p) not in seen:
+            seen.add(str(p))
+            out.append(p)
+    return out
+
+
 def platform_gds(platform, sample=None):
     p = PLATFORM[platform]
+    if platform == 'gf180' and sample and sample.get('design') == 'aes-hybrid':
+        return (sorted((ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/gds/9t').glob('*.gds'))
+                + sorted((ROOT / 'net2GDS/OpenROAD-flow-scripts/flow/platforms/gf180/gds/7t').glob('*.gds')))
     if 'gds' in p:
         return p['gds']
     if 'gds_dirs' in p:
@@ -117,7 +152,7 @@ def run_one(sample, force=False, skip_flow=False):
     conv = [str(PYTHON), str(OL / 'convert_def_to_gds.py'), '--def', str(final_def),
             '--out', str(gds_file), '--tech-file', str(PLATFORM[sample['platform']]['tech']),
             '--design', sample['top']]
-    for lef in PLATFORM[sample['platform']].get('lefs', []):
+    for lef in platform_lefs(sample['platform'], sample):
         conv += ['--lef', str(lef)]
     if PLATFORM[sample['platform']].get('map'):
         conv += ['--layer-map', str(PLATFORM[sample['platform']]['map'])]

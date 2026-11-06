@@ -67,9 +67,11 @@ def parse_drc_count(report: Path) -> int | None:
     if not report.exists():
         return None
     text = report.read_text(errors="replace")
-    values = re.findall(r"<value>", text)
-    if values:
-        return len(values)
+    # A clean run still writes an (empty) <items> section, so keying off
+    # <value> made every clean design look "unverified" (0 values -> fallback
+    # -> ambiguous).  Count the items themselves.
+    if "<items>" in text or "<item>" in text:
+        return len(re.findall(r"<item>", text))
     # Some KLayout versions emit a summary report instead of the XML value
     # elements.  Keep this fallback conservative: only a single integer is
     # accepted, otherwise the result is considered unverified.
@@ -92,7 +94,8 @@ def lvs_verdict(log: Path, rc: int, report: Path) -> str:
     return "mismatch"
 
 
-def execute(sample: dict, baseline: dict, force: bool, timeout: int) -> dict:
+def execute(sample: dict, baseline: dict, force: bool, timeout: int,
+            skip_lvs: bool = False) -> dict:
     sid = sample["sample_id"]
     out = OL / "output/current43" / sid
     gds = next(iter(sorted((out / "gds").glob("*.gds"))), None)
@@ -113,7 +116,9 @@ def execute(sample: dict, baseline: dict, force: bool, timeout: int) -> dict:
     def run_target(kind: str, deck: Path | None, report: Path, log: Path, extra: list[str]) -> tuple[int, str]:
         if not deck or not deck.exists():
             return 2, "missing deck"
-        if report.exists() and not force:
+        # Reuse only a report that is at least as new as the GDS it describes;
+        # an older one belongs to a previous (possibly wrong) conversion.
+        if report.exists() and not force and report.stat().st_mtime >= gds.stat().st_mtime:
             return 0, "reused"
         cname = "ol_signoff_%s_%s" % (
             re.sub(r"[^A-Za-z0-9_.-]", "_", sid)[:80], kind)
@@ -165,13 +170,18 @@ def execute(sample: dict, baseline: dict, force: bool, timeout: int) -> dict:
     except subprocess.TimeoutExpired:
         drc_rc, drc_action = 124, "timeout"
     try:
-        lvs_rc, lvs_action = run_target("lvs", lvs_deck, lvs_report, lvs_log, []) if ref else (2, "missing reference CDL")
+        if skip_lvs:
+            lvs_rc, lvs_action = 2, "skipped"
+        else:
+            lvs_rc, lvs_action = run_target("lvs", lvs_deck, lvs_report, lvs_log, []) if ref else (2, "missing reference CDL")
     except subprocess.TimeoutExpired:
         lvs_rc, lvs_action = 124, "timeout"
 
     drc_count = parse_drc_count(drc_report)
     drc_status = "clean" if drc_count == 0 else ("violations" if drc_count is not None else ("blocked" if drc_rc != 0 else "not_verified"))
     lvs_status = lvs_verdict(lvs_log, lvs_rc, lvs_report) if ref else "not_verified"
+    if skip_lvs:
+        lvs_status = "skipped"
     result.update({
         "status": "complete",
         "drc": {"defined": bool(drc_deck and drc_deck.exists()), "engine": "KLayout",
@@ -228,6 +238,9 @@ def main() -> int:
     ap.add_argument("--force", action="store_true")
     ap.add_argument("--only-sample", action="append")
     ap.add_argument("--only-platform", action="append")
+    ap.add_argument("--skip-lvs", action="store_true",
+                    help="run KLayout DRC only; LVS is recorded as 'skipped' "
+                         "(gf180's LVS deck hangs indefinitely in this image)")
     args = ap.parse_args()
     manifest = load(MANIFEST, {}) or {}
     baseline_rows = load(BASELINE, {}).get("results", [])
@@ -241,7 +254,8 @@ def main() -> int:
         samples = [x for x in samples if x["platform"] in wanted]
     results = []
     with concurrent.futures.ThreadPoolExecutor(max_workers=max(1, args.workers)) as ex:
-        jobs = {ex.submit(execute, s, baseline, args.force, args.timeout): s["sample_id"] for s in samples}
+        jobs = {ex.submit(execute, s, baseline, args.force, args.timeout,
+                          args.skip_lvs): s["sample_id"] for s in samples}
         for job in concurrent.futures.as_completed(jobs):
             try:
                 row = job.result()
